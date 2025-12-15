@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -14,275 +13,273 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum" // Required for CallMsg
 	"github.com/ethereum/go-ethereum/accounts/abi"
-
-    "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
-	"github.com/machinebox/graphql" 
+	"github.com/machinebox/graphql"
 )
 
-// --- GLOBAL STATE & CONFIG ---
+/* ================= GLOBAL STATE ================= */
+
 var (
-	// In-memory store for user signatures received from the Flutter Web dApp
 	SignatureStore = make(map[string]SignatureData)
 	storeMutex     sync.RWMutex
 
-	// Clients
 	ethClient *ethclient.Client
 	gqlClient *graphql.Client
-	
-	// Configuration
+
 	agentContractAddr common.Address
 	agentPrivateKey   string
+
+	// Address of the MockLending contract (From your logs)
+	lendingContractAddr = common.HexToAddress("0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447")
 )
 
-// SignatureData struct maps directly to the required fields from the Permit message
+/* ================= DATA STRUCTS ================= */
+
 type SignatureData struct {
-	UserAddress string `json:"owner"`
-	Value       *big.Int `json:"value"` // Max amount authorized
+	UserAddress string   `json:"owner"`
+	Value       *big.Int `json:"value"`
 	Deadline    *big.Int `json:"deadline"`
 	V           uint8    `json:"v"`
 	R           [32]byte `json:"r"`
 	S           [32]byte `json:"s"`
 }
 
-// CrisisUser struct maps directly to the GraphQL response fields
 type CrisisUser struct {
-	User        string `json:"user"`
-	BlockNumber string `json:"block_number"`
+	User string `json:"user"`
 }
 
-// --- HTTP HANDLER: RECEIVING SIGNATURES FROM FLUTTER WEB ---
-// --- NEW CORS MIDDLEWARE FUNCTION ---
+/* ================= CORS ================= */
+
 func enableCors(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		next(w, r)
 	}
 }
 
+/* ================= HTTP HANDLER ================= */
 
 func signatureHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var data struct {
-		SignatureData
-		RHex string `json:"r"` // Receive R as hex string
-		SHex string `json:"s"` // Receive S as hex string
+	var payload struct {
+		Owner    string `json:"owner"`
+		Value    string `json:"value"`
+		Deadline string `json:"deadline"`
+		V        uint8  `json:"v"`
+		R        string `json:"r"`
+		S        string `json:"s"`
 	}
-	
-	// Decode JSON data from Flutter POST request
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Convert hex strings back to byte arrays for Ethereum
-	rBytes, errR := hex.DecodeString(strings.TrimPrefix(data.RHex, "0x"))
-	sBytes, errS := hex.DecodeString(strings.TrimPrefix(data.SHex, "0x"))
-	if errR != nil || errS != nil || len(rBytes) != 32 || len(sBytes) != 32 {
-		http.Error(w, "Invalid R or S format. Must be 32-byte hex string.", http.StatusBadRequest)
-		return
-	}
+	value, _ := new(big.Int).SetString(payload.Value, 10)
+	deadline, _ := new(big.Int).SetString(payload.Deadline, 10)
 
-	// Save the signature data
+	rBytes, _ := hex.DecodeString(strings.TrimPrefix(payload.R, "0x"))
+	sBytes, _ := hex.DecodeString(strings.TrimPrefix(payload.S, "0x"))
+
+	var rArr, sArr [32]byte
+	copy(rArr[:], rBytes)
+	copy(sArr[:], sBytes)
+
 	storeMutex.Lock()
-	defer storeMutex.Unlock()
-	
-	copy(data.R[:], rBytes)
-	copy(data.S[:], sBytes)
-	
-	SignatureStore[data.UserAddress] = data.SignatureData
-	log.Printf("Successfully stored permit signature for user: %s", data.UserAddress)
+	SignatureStore[payload.Owner] = SignatureData{
+		UserAddress: payload.Owner,
+		Value:       value,
+		Deadline:    deadline,
+		V:           payload.V,
+		R:           rArr,
+		S:           sArr,
+	}
+	storeMutex.Unlock()
 
+	log.Println("Stored signature for", payload.Owner)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Signature stored successfully."))
 }
 
+/* ================= RESCUE EXECUTION ================= */
 
-// --- CORE LOGIC: GRAPHQL MONITORING AND EXECUTION ---
+func executeRescue(parsedABI abi.ABI, borrower string, sig SignatureData) error {
+	// --- STEP 1: Get the Actual Debt on-chain ---
 
-func monitorCrisisLoop() {
-	// ABI of the executeRescueWithPermit function (extracted from your RescueAgent contract)
-	const agentABI = `[{"inputs":[{"internalType":"address","name":"borrower","type":"address"},{"internalType":"uint256","name":"debtToRepay","type":"uint256"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"deadline","type":"uint256"},{"internalType":"uint8","name":"v","type":"uint8"},{"internalType":"bytes32","name":"r","type":"bytes32"},{"internalType":"bytes32","name":"s","type":"bytes32"}],"name":"executeRescueWithPermit","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+	// Minimal ABI for the debt mapping: function debt(address) returns (uint256)
+	const lendingABIJSON = `[{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"debt","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 
-	parsedABI, err := abi.JSON(strings.NewReader(agentABI))
+	lendingParsedABI, _ := abi.JSON(strings.NewReader(lendingABIJSON))
+
+	// Pack the call to 'debt(borrower)'
+	dataDebt, err := lendingParsedABI.Pack("debt", common.HexToAddress(borrower))
 	if err != nil {
-		log.Fatalf("Failed to parse agent ABI: %v", err)
+		return err
 	}
 
-	// GraphQL query to find users in crisis (e.g., health factor is 0)
-	const crisisQuery = `
-		query CurrentCrisisUsers {
-			MockLending_HealthFactorUpdated(
-				where: {newHealth: {_eq: "0"}}
-			) {
-				user
-			}
-		}`
-
-	for {
-		req := graphql.NewRequest(crisisQuery)
-		var response struct {
-			CrisisEvents []CrisisUser `json:"MockLending_HealthFactorUpdated"`
-		}
-
-		if err := gqlClient.Run(context.Background(), req, &response); err != nil {
-			log.Printf("GraphQL Query Error: %v", err)
-			time.Sleep(30 * time.Second)
-			continue
-		}
-
-		for _, event := range response.CrisisEvents {
-			user := common.HexToAddress(event.User).Hex()
-			
-			storeMutex.RLock()
-			sigData, exists := SignatureStore[user]
-			storeMutex.RUnlock()
-
-			if exists {
-				log.Printf("🔥 CRISIS DETECTED for user %s. Initiating rescue...", user)
-				if err := executeRescueTx(parsedABI, user, sigData); err != nil {
-					log.Printf("🚨 Rescue FAILED for %s: %v", user, err)
-				} else {
-					log.Printf("✅ Rescue SUCCESS for %s. Removing signature.", user)
-					storeMutex.Lock()
-					delete(SignatureStore, user) // Prevent re-use of signature
-					storeMutex.Unlock()
-				}
-			}
-		}
-
-		time.Sleep(60 * time.Second) // Poll every 60 seconds
+	// Call the contract (Static Call, no gas spent)
+	msg := ethereum.CallMsg{
+		To:   &lendingContractAddr,
+		Data: dataDebt,
 	}
-}
+	result, err := ethClient.CallContract(context.Background(), msg, nil)
+	if err != nil {
+		return err
+	}
 
-// --- CORE LOGIC: EXECUTE TRANSACTION ---
+	// Unpack the result
+	var out []interface{}
+	out, err = lendingParsedABI.Unpack("debt", result)
+	if err != nil {
+		return err
+	}
+	actualDebt := out[0].(*big.Int)
+	log.Println("🔍 On-Chain Debt Check:", actualDebt.String(), "| Signed Permit:", sig.Value.String())
 
-func executeRescueTx(parsedABI abi.ABI, borrower string, sigData SignatureData) error {
-	// Repay amount (Example: 100 tokens, replace with actual required amount logic)
-	debtToRepay := big.NewInt(0)
-	debtToRepay.SetString("100000000000000000000", 10) 
+	// --- STEP 2: Calculate Repay Amount ---
 
-	// 1. Prepare Calldata: ABI encoding of the function and arguments
-	packedData, err := parsedABI.Pack(
+	repayAmount := new(big.Int)
+
+	// If Debt < Permit Amount, only pay the Debt
+	if actualDebt.Cmp(sig.Value) < 0 {
+		repayAmount = actualDebt
+		log.Println("⚠️  Debt is smaller than Permit. Repaying exact debt:", repayAmount)
+	} else {
+		// If Debt >= Permit Amount, pay the full Permit Amount
+		repayAmount = sig.Value
+		log.Println("✅  Permit covers full or partial debt. Repaying signed amount:", repayAmount)
+	}
+
+	// Check if debt is 0 (don't waste gas)
+	if repayAmount.Cmp(big.NewInt(0)) == 0 {
+		log.Println("🛑 Debt is 0, skipping transaction.")
+		return nil
+	}
+
+	// --- STEP 3: Execute Rescue ---
+
+	data, err := parsedABI.Pack(
 		"executeRescueWithPermit",
 		common.HexToAddress(borrower),
-		debtToRepay,
-		sigData.Value,     // The max authorized amount
-		sigData.Deadline,
-		sigData.V,
-		sigData.R,
-		sigData.S,
+		repayAmount, // <--- Using calculated SAFE amount
+		sig.Value,   // Using original SIGNED amount for permit check
+		sig.Deadline,
+		sig.V,
+		sig.R,
+		sig.S,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to pack data: %w", err)
+		return err
 	}
 
-	// 2. Load Agent Wallet and Prepare Transaction Metadata
-	// 2. Load Agent Wallet and Prepare Transaction Metadata
 	privateKey, err := crypto.HexToECDSA(agentPrivateKey)
 	if err != nil {
-		return fmt.Errorf("invalid private key in environment: %w", err)
-	}
-	
-	// FIX: Directly get the public key and then its address.
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-
-	if !ok {
-		return fmt.Errorf("cannot assert public key to type *ecdsa.PublicKey")
-	}
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-	nonce, err := ethClient.PendingNonceAt(context.Background(), fromAddress) // Get transaction nonce
-	if err != nil {
-		return fmt.Errorf("failed to get nonce: %w", err)
-	}
-	gasPrice, err := ethClient.SuggestGasPrice(context.Background()) // Get gas price
-	if err != nil {
-		return fmt.Errorf("failed to get gas price: %w", err)
+		return err
 	}
 
-	// 3. Create, Sign, and Send Transaction
+	publicKey := privateKey.Public().(*ecdsa.PublicKey)
+	from := crypto.PubkeyToAddress(*publicKey)
+
+	nonce, _ := ethClient.PendingNonceAt(context.Background(), from)
+	gasPrice, _ := ethClient.SuggestGasPrice(context.Background())
+
 	tx := types.NewTransaction(
 		nonce,
 		agentContractAddr,
-		big.NewInt(0), // Value is 0 (no native token sent)
-		300000,        // Gas Limit (example)
+		big.NewInt(0),
+		300000,
 		gasPrice,
-		packedData,
+		data,
 	)
 
-	chainID, err := ethClient.ChainID(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed to get chain ID: %w", err)
-	}
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey) // Sign the transaction
-	if err != nil {
-		return fmt.Errorf("failed to sign transaction: %w", err)
-	}
+	chainID, _ := ethClient.ChainID(context.Background())
+	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
 
-	if err := ethClient.SendTransaction(context.Background(), signedTx); err != nil { // Send the raw transaction
-		return fmt.Errorf("failed to send transaction: %w", err)
-	}
-
-	log.Printf("Transaction sent! Hash: %s", signedTx.Hash().Hex())
-	return nil
+	log.Println("🚀 Sending Rescue Transaction...")
+	return ethClient.SendTransaction(context.Background(), signedTx)
 }
 
-// --- MAIN SETUP ---
+/* ================= MONITOR LOOP ================= */
+
+func monitorCrisis() {
+	const agentABI = `[{"inputs":[{"internalType":"address","name":"borrower","type":"address"},{"internalType":"uint256","name":"debtToRepay","type":"uint256"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"deadline","type":"uint256"},{"internalType":"uint8","name":"v","type":"uint8"},{"internalType":"bytes32","name":"r","type":"bytes32"},{"internalType":"bytes32","name":"s","type":"bytes32"}],"name":"executeRescueWithPermit","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+
+	parsedABI, _ := abi.JSON(strings.NewReader(agentABI))
+
+	query := `
+    query {
+      MockLending_HealthFactorUpdated(where: {newHealth: {_eq: "0"}}) {
+        user
+      }
+    }`
+
+	for {
+		req := graphql.NewRequest(query)
+		var resp struct {
+			Events []CrisisUser `json:"MockLending_HealthFactorUpdated"`
+		}
+
+		if err := gqlClient.Run(context.Background(), req, &resp); err == nil {
+			for _, e := range resp.Events {
+				storeMutex.RLock()
+				sig, ok := SignatureStore[e.User]
+				storeMutex.RUnlock()
+
+				if ok {
+					log.Println("🔥 Rescuing", e.User)
+
+					if err := executeRescue(parsedABI, e.User, sig); err != nil {
+						log.Println("❌ Rescue failed:", err)
+						continue
+					}
+
+					// Remove signature so we don't spam the network
+					storeMutex.Lock()
+					delete(SignatureStore, e.User)
+					storeMutex.Unlock()
+
+					log.Println("✅ Rescue Transaction Sent & Signature invalidated for", e.User)
+				}
+			}
+		}
+		time.Sleep(10 * time.Second) // Check every 10 seconds
+	}
+}
+
+/* ================= MAIN ================= */
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		// Log fatal if .env is missing or invalid
-		log.Fatal("Error loading .env file. Ensure it is in the project root and configured.")
-	}
-	
-	// Initialize Clients and Config
-	var err error
-	rpcUrl := os.Getenv("BASE_SEPOLIA_RPC")
-	if rpcUrl == "" {
-		log.Fatal("BASE_SEPOLIA_RPC is not set in .env")
-	}
-	ethClient, err = ethclient.Dial(rpcUrl) // Connect to RPC
-	if err != nil {
-		log.Fatalf("Failed to connect to Ethereum client: %v", err)
-	}
-	
-	gqlEndpoint := os.Getenv("GRAPHQL_ENDPOINT")
-	if gqlEndpoint == "" {
-		log.Fatal("GRAPHQL_ENDPOINT is not set in .env")
-	}
-	gqlClient = graphql.NewClient(gqlEndpoint) // Connect to GraphQL indexer
-	
+	godotenv.Load()
+
+	rpc := os.Getenv("BASE_SEPOLIA_RPC")
+	ethClient, _ = ethclient.Dial(rpc)
+
+	gqlClient = graphql.NewClient(os.Getenv("GRAPHQL_ENDPOINT"))
+
 	agentContractAddr = common.HexToAddress(os.Getenv("AGENT_CONTRACT_ADDR"))
 	agentPrivateKey = os.Getenv("PRIVATE_KEY")
-	if agentPrivateKey == "" {
-		log.Fatal("PRIVATE_KEY is not set in .env")
-	}
 
-	// Start the background monitoring worker
-	go monitorCrisisLoop()
+	go monitorCrisis()
 
-	// Start the HTTP server to receive signatures from Flutter Web
 	http.HandleFunc("/submit-signature", enableCors(signatureHandler))
-	
-	log.Println("Agent Server running on http://localhost:8081. Monitoring crisis events...")
-	log.Fatal(http.ListenAndServe("0.0.0.0:8081", nil))
+
+	log.Println("Agent running on :8081")
+	log.Fatal(http.ListenAndServe(":8081", nil))
 }

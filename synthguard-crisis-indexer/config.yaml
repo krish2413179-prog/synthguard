@@ -9,7 +9,7 @@ networks:
 
     contracts:
       - name: MockLending
-        address: 0xD2c30a46Ac468F67f7C2eb7Bd60bf33b6Cfb388b
+        address: 0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447
         handler: src/EventHandlers.js
         abi_file_path: abis/MockLending.json
         events:

@@ -1,0 +1,22 @@
+{
+  "name": "synthguard-crisis-indexer",
+  "bsc-flags": ["-bs-super-errors", "-bs-suppress-warnings", 101, 20],
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true
+    },
+    {
+      "dir": "contracts",
+      "subdirs": true
+    }
+  ],
+  "package-specs": [
+    {
+      "module": "commonjs",
+      "in-source": true
+    }
+  ],
+  "suffix": ".res.js",
+  "ppx-flags": []
+}

@@ -30,7 +30,7 @@ let makeGeneratedConfig = () => {
           InternalConfig.name: "MockLending",
           abi: Types.MockLending.abi,
           addresses: [
-            "0xD2c30a46Ac468F67f7C2eb7Bd60bf33b6Cfb388b"->Address.Evm.fromStringOrThrow
+            "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447"->Address.Evm.fromStringOrThrow
 ,
           ],
           events: [
