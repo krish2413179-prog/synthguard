@@ -1,0 +1,17 @@
+name: synthguard_crisis_tracker
+description: Tracking Crisis Events on Base Sepolia
+
+networks:
+  - id: 84532
+    rpc_config:
+      url: https://sepolia.base.org
+    start_block: 34900000
+
+    contracts:
+      - name: MockLending
+        address: 0xD2c30a46Ac468F67f7C2eb7Bd60bf33b6Cfb388b
+        handler: src/EventHandlers.js
+        abi_file_path: abis/MockLending.json
+        events:
+          - event: "HealthFactorUpdated(address indexed user, uint256 newHealth)"
+          - event: "RescueExecuted(address indexed user, uint256 debtRepaid)"

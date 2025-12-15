@@ -1,0 +1,13 @@
+type MockLending_HealthFactorUpdated {
+  id: ID!
+  user: String!
+  newHealth: BigInt!
+  block_number: BigInt!
+}
+
+type MockLending_RescueExecuted {
+  id: ID!
+  user: String!
+  debtRepaid: BigInt!
+  block_number: BigInt!
+}
