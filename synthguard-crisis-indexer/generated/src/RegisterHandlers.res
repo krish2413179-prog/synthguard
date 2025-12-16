@@ -37,7 +37,7 @@ let makeGeneratedConfig = () => {
             (Types.MockLending.HealthFactorUpdated.register() :> Internal.eventConfig),
             (Types.MockLending.RescueExecuted.register() :> Internal.eventConfig),
           ],
-          startBlock: None,
+          startBlock: Some(35051000),
         },
       ]
       let chain = ChainMap.Chain.makeUnsafe(~chainId=84532)

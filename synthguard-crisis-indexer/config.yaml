@@ -1,23 +1,21 @@
+# yaml-language: $schema=./node_modules/envio/evm.schema.json
 name: synthguard_crisis_tracker
 description: Tracking Crisis Events on Base Sepolia
 
 networks:
-  - id: 84532
-    # The start block is set to a recent block to fix the "56 years sync time" error.
+  - id: 84532 # <--- THIS FIELD WAS MISSING (Line 6, column 5 in your error)
     start_block: 35051000 
-    
-    # Corrected structure for RPC configuration to fix the deserialization error.
+    # Corrected structure for RPC configuration
     rpc_config:
       url: https://sepolia.base.org 
     
     contracts:
       - name: MockLending
-        address: "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447" 
-        
-        # RENAME THIS KEY to fix the error:
+        address: "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447"
         abi_file_path: "./abis/MockLending.json"
-        
         handler: "./src/EventHandlers.ts"
+        start_block: 35051000 
+        
         events:
           - event: HealthFactorUpdated(address indexed user, uint256 newHealth)
           - event: RescueExecuted(address indexed user, uint256 debtRepaid)
