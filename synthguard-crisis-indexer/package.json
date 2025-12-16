@@ -32,5 +32,13 @@
     "ignoredBuiltDependencies": [
       "rescript"
     ]
-  }
+  },
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "commonjs"
 }
