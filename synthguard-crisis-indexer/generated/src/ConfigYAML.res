@@ -39,7 +39,7 @@ let publicConfig = ChainMap.fromArrayUnsafe([
           name: "MockLending",
           abi: Types.MockLending.abi,
           addresses: [
-            "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447",
+            "0x76Bb074046e707481D6ba9cc7301e39912dC0EE1",
           ],
           events: [
             Types.MockLending.HealthFactorUpdated.name,
@@ -54,7 +54,7 @@ let publicConfig = ChainMap.fromArrayUnsafe([
       {
         confirmedBlockThreshold: 200,
         syncSource: Rpc({syncConfig: Config.getSyncConfig({})}),
-        startBlock: 34900000,
+        startBlock: 35071323,
         contracts,
         lowercaseAddresses: false
       }

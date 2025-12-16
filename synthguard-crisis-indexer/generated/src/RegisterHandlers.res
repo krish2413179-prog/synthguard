@@ -30,7 +30,7 @@ let makeGeneratedConfig = () => {
           InternalConfig.name: "MockLending",
           abi: Types.MockLending.abi,
           addresses: [
-            "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447"->Address.Evm.fromStringOrThrow
+            "0x76Bb074046e707481D6ba9cc7301e39912dC0EE1"->Address.Evm.fromStringOrThrow
 ,
           ],
           events: [
@@ -43,7 +43,7 @@ let makeGeneratedConfig = () => {
       let chain = ChainMap.Chain.makeUnsafe(~chainId=84532)
       {
         InternalConfig.maxReorgDepth: 200,
-        startBlock: 34900000,
+        startBlock: 35071323,
         id: 84532,
         contracts,
         sources: NetworkSources.evm(~chain, ~contracts=[{name: "MockLending",events: [Types.MockLending.HealthFactorUpdated.register(), Types.MockLending.RescueExecuted.register()],abi: Types.MockLending.abi}], ~hyperSync=None, ~allEventSignatures=[Types.MockLending.eventSignatures]->Belt.Array.concatMany, ~shouldUseHypersyncClientDecoder=true, ~rpcs=[{url: "https://sepolia.base.org", sourceFor: Sync, syncConfig: {}}], ~lowercaseAddresses=false)
