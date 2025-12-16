@@ -54,7 +54,7 @@ let publicConfig = ChainMap.fromArrayUnsafe([
       {
         confirmedBlockThreshold: 200,
         syncSource: Rpc({syncConfig: Config.getSyncConfig({})}),
-        startBlock: 34900000,
+        startBlock: 35051000,
         contracts,
         lowercaseAddresses: false
       }

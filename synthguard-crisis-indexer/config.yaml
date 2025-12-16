@@ -3,15 +3,21 @@ description: Tracking Crisis Events on Base Sepolia
 
 networks:
   - id: 84532
-    startBlock: 35051000
-    rpc:
-      - https://sepolia.base.org  
-
+    # The start block is set to a recent block to fix the "56 years sync time" error.
+    start_block: 35051000 
+    
+    # Corrected structure for RPC configuration to fix the deserialization error.
+    rpc_config:
+      url: https://sepolia.base.org 
+    
     contracts:
       - name: MockLending
-        address: "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447"
-        abi: abis/MockLending.json
-
+        address: "0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447" 
+        
+        # RENAME THIS KEY to fix the error:
+        abi_file_path: "./abis/MockLending.json"
+        
+        handler: "./src/EventHandlers.ts"
         events:
           - event: HealthFactorUpdated(address indexed user, uint256 newHealth)
           - event: RescueExecuted(address indexed user, uint256 debtRepaid)
