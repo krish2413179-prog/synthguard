@@ -3,9 +3,10 @@ description: Tracking Crisis Events on Base Sepolia
 
 networks:
   - id: 84532
+    start_block: 34900000
     rpc_config:
       url: https://sepolia.base.org
-    start_block: 34900000
+    
 
     contracts:
       - name: MockLending
