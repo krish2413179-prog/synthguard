@@ -2,18 +2,17 @@ name: synthguard_crisis_tracker
 description: Tracking Crisis Events on Base Sepolia
 
 networks:
-  - id: 84532                    # ✅ MUST be numeric (chainId)
-    start_block: 35051000        # ✅ Before contract deployment
-    rpc_config:
-      url: https://sepolia.base.org
+  - id: 84532
+    rpc:
+      - https://sepolia.base.org
+    startBlock: 35051000
 
-    contracts:
-      - name: MockLending
-        address: 0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447
-        network : 84532
-        handler: src/EventHandlers.js
-        abi_file_path: abis/MockLending.json
-        events:
-          - event: "HealthFactorUpdated(address indexed user, uint256 newHealth)"
-          - event: "RescueExecuted(address indexed user, uint256 debtRepaid)"
-
+contracts:
+  - name: MockLending
+    address: 0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447
+    network: 84532
+    abi: abis/MockLending.json
+    handler: src/EventHandlers.js
+    events:
+      - event: HealthFactorUpdated(address,uint256)
+      - event: RescueExecuted(address,uint256)
