@@ -1,4 +1,5 @@
-version: '3.8'
+version: "3.8"
+
 services:
   postgres:
     image: postgres:15
@@ -14,6 +15,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
   hasura:
     image: hasura/graphql-engine:v2.36.1
     ports:
@@ -27,3 +29,15 @@ services:
       HASURA_GRAPHQL_DEV_MODE: "true"
       HASURA_GRAPHQL_ADMIN_SECRET: testing
       HASURA_GRAPHQL_UNAUTHORIZED_ROLE: public
+
+  indexer:
+    image: ghcr.io/enviodev/hyperindexer:v0.0.17
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      DATABASE_URL: postgres://postgres:testing@postgres:5432/envio-dev
+    command: ["envio", "dev"]

@@ -5,24 +5,16 @@ const { MockLending } = require("../generated");
  */
 MockLending.HealthFactorUpdated.handler(async ({ event, context }) => {
   try {
-    const user = event.params.user;
-    // CRITICAL: Ensure BigInt is converted to string for database and apply safety check
-    const newHealth = (event.params.newHealth || 0n).toString(); 
-    
-    // CRITICAL: Safely access block number from event.block object
-    const blockNum = (event.block.number || 0).toString(); 
+    await context.MockLending_HealthFactorUpdated.set({
+      id: `${event.block.number}_${event.logIndex}`,
+      user: event.params.user.toLowerCase(),
+      newHealth: event.params.newHealth ?? 0n,
+      block_number: event.block.number
+    });
 
     context.log.info(
-      `CRISIS UPDATE: User ${user} health is now ${newHealth}`
+      `CRISIS UPDATE: user=${event.params.user} health=${event.params.newHealth}`
     );
-
-    await context.MockLending_HealthFactorUpdated.set({
-      // ID FIX: Use event.block.number for maximum stability
-      id: `${blockNum}_${event.logIndex}`, 
-      user,
-      newHealth,
-      block_number: blockNum
-    });
   } catch (err) {
     context.log.error("HealthFactorUpdated handler failed", err);
   }
@@ -33,24 +25,16 @@ MockLending.HealthFactorUpdated.handler(async ({ event, context }) => {
  */
 MockLending.RescueExecuted.handler(async ({ event, context }) => {
   try {
-    const user = event.params.user;
-    // CRITICAL: Ensure BigInt is converted to string for database and apply safety check
-    const debtRepaid = (event.params.debtRepaid || 0n).toString();
-
-    // CRITICAL: Safely access block number from event.block object
-    const blockNum = (event.block.number || 0).toString();
+    await context.MockLending_RescueExecuted.set({
+      id: `${event.block.number}_${event.logIndex}`,
+      user: event.params.user.toLowerCase(),
+      debtRepaid: event.params.debtRepaid ?? 0n,
+      block_number: event.block.number
+    });
 
     context.log.info(
-      `RESCUE EXECUTED: Paid off ${debtRepaid} for user ${user}`
+      `RESCUE EXECUTED: user=${event.params.user} repaid=${event.params.debtRepaid}`
     );
-
-    await context.MockLending_RescueExecuted.set({
-      // ID FIX: Use event.block.number for maximum stability
-      id: `${blockNum}_${event.logIndex}`,
-      user,
-      debtRepaid,
-      block_number: blockNum
-    });
   } catch (err) {
     context.log.error("RescueExecuted handler failed", err);
   }
