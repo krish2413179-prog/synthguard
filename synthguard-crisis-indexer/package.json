@@ -6,7 +6,7 @@
   "scripts": {
     "build": "rescript build",
     "dev": "envio dev",
-    "start": "envio dev"
+    "start": "envio start"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
