@@ -5,7 +5,11 @@
 
 const TestHelpers_MockDbJS = require('./TestHelpers_MockDb.res.js');
 
+import type {AgentStatus_t as Entities_AgentStatus_t} from '../src/db/Entities.gen';
+
 import type {DynamicContractRegistry_t as InternalTable_DynamicContractRegistry_t} from 'envio/src/db/InternalTable.gen';
+
+import type {FundsDelegated_t as Entities_FundsDelegated_t} from '../src/db/Entities.gen';
 
 import type {MockLending_HealthFactorUpdated_t as Entities_MockLending_HealthFactorUpdated_t} from '../src/db/Entities.gen';
 
@@ -30,7 +34,12 @@ export type t = {
   readonly processEvents: (_1:Types_eventLog<unknown>[]) => Promise<t>
 };
 
-export type entities = { readonly MockLending_HealthFactorUpdated: entityStoreOperations<Entities_MockLending_HealthFactorUpdated_t>; readonly MockLending_RescueExecuted: entityStoreOperations<Entities_MockLending_RescueExecuted_t> };
+export type entities = {
+  readonly AgentStatus: entityStoreOperations<Entities_AgentStatus_t>; 
+  readonly FundsDelegated: entityStoreOperations<Entities_FundsDelegated_t>; 
+  readonly MockLending_HealthFactorUpdated: entityStoreOperations<Entities_MockLending_HealthFactorUpdated_t>; 
+  readonly MockLending_RescueExecuted: entityStoreOperations<Entities_MockLending_RescueExecuted_t>
+};
 
 export type entityStoreOperations<entity> = storeOperations<string,entity>;
 

@@ -11,3 +11,17 @@ type MockLending_RescueExecuted {
   debtRepaid: BigInt!
   block_number: BigInt!
 }
+
+type FundsDelegated @entity {
+  id: ID!
+  user: Bytes!
+  workerAgent: Bytes!
+  amount: BigInt!
+  timestamp: Int!
+}
+
+type AgentStatus @entity {
+  id: ID!
+  agent: Bytes!
+  isActive: Boolean!
+}

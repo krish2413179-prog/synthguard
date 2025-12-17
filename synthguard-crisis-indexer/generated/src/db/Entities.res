@@ -41,9 +41,161 @@ type whereOperations<'entity, 'fieldType> = {
   gt: 'fieldType => promise<array<'entity>>
 }
 
+module AgentStatus = {
+  let name = (AgentStatus :> string)
+  let index = 0
+  @genType
+  type t = {
+    agent: string,
+    id: id,
+    isActive: bool,
+  }
+
+  let schema = S.object((s): t => {
+    agent: s.field("agent", S.string),
+    id: s.field("id", S.string),
+    isActive: s.field("isActive", S.bool),
+  })
+
+  let rowsSchema = S.array(schema)
+
+  @genType
+  type indexedFieldOperations = {
+    
+  }
+
+  let table = mkTable(
+    (name :> string),
+    ~fields=[
+      mkField(
+      "agent", 
+      Text,
+      ~fieldSchema=S.string,
+      
+      
+      
+      
+      
+      ),
+      mkField(
+      "id", 
+      Text,
+      ~fieldSchema=S.string,
+      ~isPrimaryKey,
+      
+      
+      
+      
+      ),
+      mkField(
+      "isActive", 
+      Boolean,
+      ~fieldSchema=S.bool,
+      
+      
+      
+      
+      
+      ),
+    ],
+  )
+
+  let entityHistory = table->EntityHistory.fromTable(~schema, ~entityIndex=index)
+
+  external castToInternal: t => Internal.entity = "%identity"
+}
+
+module FundsDelegated = {
+  let name = (FundsDelegated :> string)
+  let index = 1
+  @genType
+  type t = {
+    amount: bigint,
+    id: id,
+    timestamp: int,
+    user: string,
+    workerAgent: string,
+  }
+
+  let schema = S.object((s): t => {
+    amount: s.field("amount", BigInt.schema),
+    id: s.field("id", S.string),
+    timestamp: s.field("timestamp", S.int),
+    user: s.field("user", S.string),
+    workerAgent: s.field("workerAgent", S.string),
+  })
+
+  let rowsSchema = S.array(schema)
+
+  @genType
+  type indexedFieldOperations = {
+    
+  }
+
+  let table = mkTable(
+    (name :> string),
+    ~fields=[
+      mkField(
+      "amount", 
+      Numeric,
+      ~fieldSchema=BigInt.schema,
+      
+      
+      
+      
+      
+      ),
+      mkField(
+      "id", 
+      Text,
+      ~fieldSchema=S.string,
+      ~isPrimaryKey,
+      
+      
+      
+      
+      ),
+      mkField(
+      "timestamp", 
+      Integer,
+      ~fieldSchema=S.int,
+      
+      
+      
+      
+      
+      ),
+      mkField(
+      "user", 
+      Text,
+      ~fieldSchema=S.string,
+      
+      
+      
+      
+      
+      ),
+      mkField(
+      "workerAgent", 
+      Text,
+      ~fieldSchema=S.string,
+      
+      
+      
+      
+      
+      ),
+    ],
+  )
+
+  let entityHistory = table->EntityHistory.fromTable(~schema, ~entityIndex=index)
+
+  external castToInternal: t => Internal.entity = "%identity"
+}
+
 module MockLending_HealthFactorUpdated = {
   let name = (MockLending_HealthFactorUpdated :> string)
-  let index = 0
+  let index = 2
   @genType
   type t = {
     block_number: bigint,
@@ -119,7 +271,7 @@ module MockLending_HealthFactorUpdated = {
 
 module MockLending_RescueExecuted = {
   let name = (MockLending_RescueExecuted :> string)
-  let index = 1
+  let index = 3
   @genType
   type t = {
     block_number: bigint,
@@ -194,6 +346,8 @@ module MockLending_RescueExecuted = {
 }
 
 let userEntities = [
+  module(AgentStatus),
+  module(FundsDelegated),
   module(MockLending_HealthFactorUpdated),
   module(MockLending_RescueExecuted),
 ]->entityModsToInternal

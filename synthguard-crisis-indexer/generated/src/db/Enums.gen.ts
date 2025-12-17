@@ -3,9 +3,11 @@
 /* eslint-disable */
 /* tslint:disable */
 
-export type ContractType_t = "MockLending";
+export type ContractType_t = "GuardianManager" | "MockLending";
 
 export type EntityType_t = 
-    "MockLending_HealthFactorUpdated"
+    "AgentStatus"
+  | "FundsDelegated"
+  | "MockLending_HealthFactorUpdated"
   | "MockLending_RescueExecuted"
   | "dynamic_contract_registry";

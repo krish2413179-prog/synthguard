@@ -2,8 +2,8 @@ name: synthguard_crisis_tracker
 description: Tracking Crisis Events on Base Sepolia
 
 networks:
-  - id: 84532  
-    start_block: 35071323
+  - id: 84532
+    start_block: 34900000
     rpc_config:
       url: https://sepolia.base.org
     
@@ -16,3 +16,12 @@ networks:
         events:
           - event: "HealthFactorUpdated(address indexed user, uint256 newHealth)"
           - event: "RescueExecuted(address indexed user, uint256 debtRepaid)"
+      
+     
+
+      - name: GuardianManager
+        address: 0xDA0dFcC5A305F10EBfb0791A8Ce59Ca8FB2F0C92             
+        handler: src/EventHandlers.js
+        events:
+          - event: FundsDelegated(address indexed user, address indexed workerAgent, uint256 amount)
+          - event: AgentStatusUpdated(address indexed agent, bool isActive)

@@ -142,6 +142,90 @@ module EventFunctions = {
 }
 
 
+module GuardianManager = {
+  module FundsDelegated = {
+    @genType
+    let processEvent: EventFunctions.eventProcessor<Types.GuardianManager.FundsDelegated.event> = EventFunctions.makeEventProcessor(
+      ~register=(Types.GuardianManager.FundsDelegated.register :> unit => Internal.eventConfig),
+    )
+
+    @genType
+    type createMockArgs = {
+      @as("user")
+      user?: Address.t,
+      @as("workerAgent")
+      workerAgent?: Address.t,
+      @as("amount")
+      amount?: bigint,
+      mockEventData?: EventFunctions.mockEventData,
+    }
+
+    @genType
+    let createMockEvent = args => {
+      let {
+        ?user,
+        ?workerAgent,
+        ?amount,
+        ?mockEventData,
+      } = args
+
+      let params = 
+      {
+       user: user->Belt.Option.getWithDefault(TestHelpers_MockAddresses.defaultAddress),
+       workerAgent: workerAgent->Belt.Option.getWithDefault(TestHelpers_MockAddresses.defaultAddress),
+       amount: amount->Belt.Option.getWithDefault(0n),
+      }
+->(Utils.magic: Types.GuardianManager.FundsDelegated.eventArgs => Internal.eventParams)
+
+      EventFunctions.makeEventMocker(
+        ~params,
+        ~mockEventData,
+        ~register=(Types.GuardianManager.FundsDelegated.register :> unit => Internal.eventConfig),
+      )->(Utils.magic: Internal.event => Types.GuardianManager.FundsDelegated.event)
+    }
+  }
+
+  module AgentStatusUpdated = {
+    @genType
+    let processEvent: EventFunctions.eventProcessor<Types.GuardianManager.AgentStatusUpdated.event> = EventFunctions.makeEventProcessor(
+      ~register=(Types.GuardianManager.AgentStatusUpdated.register :> unit => Internal.eventConfig),
+    )
+
+    @genType
+    type createMockArgs = {
+      @as("agent")
+      agent?: Address.t,
+      @as("isActive")
+      isActive?: bool,
+      mockEventData?: EventFunctions.mockEventData,
+    }
+
+    @genType
+    let createMockEvent = args => {
+      let {
+        ?agent,
+        ?isActive,
+        ?mockEventData,
+      } = args
+
+      let params = 
+      {
+       agent: agent->Belt.Option.getWithDefault(TestHelpers_MockAddresses.defaultAddress),
+       isActive: isActive->Belt.Option.getWithDefault(false),
+      }
+->(Utils.magic: Types.GuardianManager.AgentStatusUpdated.eventArgs => Internal.eventParams)
+
+      EventFunctions.makeEventMocker(
+        ~params,
+        ~mockEventData,
+        ~register=(Types.GuardianManager.AgentStatusUpdated.register :> unit => Internal.eventConfig),
+      )->(Utils.magic: Internal.event => Types.GuardianManager.AgentStatusUpdated.event)
+    }
+  }
+
+}
+
+
 module MockLending = {
   module HealthFactorUpdated = {
     @genType

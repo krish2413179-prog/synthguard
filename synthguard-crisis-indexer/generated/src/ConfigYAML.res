@@ -47,6 +47,20 @@ let publicConfig = ChainMap.fromArrayUnsafe([
           ],
         }
       ),
+      (
+        "GuardianManager",
+        {
+          name: "GuardianManager",
+          abi: Types.GuardianManager.abi,
+          addresses: [
+            "0xDA0dFcC5A305F10EBfb0791A8Ce59Ca8FB2F0C92",
+          ],
+          events: [
+            Types.GuardianManager.FundsDelegated.name,
+            Types.GuardianManager.AgentStatusUpdated.name,
+          ],
+        }
+      ),
     ])
     let chain = ChainMap.Chain.makeUnsafe(~chainId=84532)
     (
@@ -54,7 +68,7 @@ let publicConfig = ChainMap.fromArrayUnsafe([
       {
         confirmedBlockThreshold: 200,
         syncSource: Rpc({syncConfig: Config.getSyncConfig({})}),
-        startBlock: 35071323,
+        startBlock: 34900000,
         contracts,
         lowercaseAddresses: false
       }

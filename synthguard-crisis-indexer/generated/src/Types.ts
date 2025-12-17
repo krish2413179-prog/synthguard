@@ -35,6 +35,62 @@ export type LoaderContext = {
       readonly isReady: boolean;
     };
   };
+  readonly AgentStatus: {
+    /**
+     * Load the entity AgentStatus from the storage by ID.
+     * If the entity is not found, returns undefined.
+     */
+    readonly get: (id: string) => Promise<Entities.AgentStatus_t | undefined>,
+    /**
+     * Load the entity AgentStatus from the storage by ID.
+     * If the entity is not found, throws an error.
+     */
+    readonly getOrThrow: (id: string, message?: string) => Promise<Entities.AgentStatus_t>,
+    readonly getWhere: Entities.AgentStatus_indexedFieldOperations,
+    /**
+     * Returns the entity AgentStatus from the storage by ID.
+     * If the entity is not found, creates it using provided parameters and returns it.
+     */
+    readonly getOrCreate: (entity: Entities.AgentStatus_t) => Promise<Entities.AgentStatus_t>,
+    /**
+     * Set the entity AgentStatus in the storage.
+     */
+    readonly set: (entity: Entities.AgentStatus_t) => void,
+    /**
+     * Delete the entity AgentStatus from the storage.
+     *
+     * The 'deleteUnsafe' method is experimental and unsafe. You should manually handle all entity references after deletion to maintain database consistency.
+     */
+    readonly deleteUnsafe: (id: string) => void,
+  }
+  readonly FundsDelegated: {
+    /**
+     * Load the entity FundsDelegated from the storage by ID.
+     * If the entity is not found, returns undefined.
+     */
+    readonly get: (id: string) => Promise<Entities.FundsDelegated_t | undefined>,
+    /**
+     * Load the entity FundsDelegated from the storage by ID.
+     * If the entity is not found, throws an error.
+     */
+    readonly getOrThrow: (id: string, message?: string) => Promise<Entities.FundsDelegated_t>,
+    readonly getWhere: Entities.FundsDelegated_indexedFieldOperations,
+    /**
+     * Returns the entity FundsDelegated from the storage by ID.
+     * If the entity is not found, creates it using provided parameters and returns it.
+     */
+    readonly getOrCreate: (entity: Entities.FundsDelegated_t) => Promise<Entities.FundsDelegated_t>,
+    /**
+     * Set the entity FundsDelegated in the storage.
+     */
+    readonly set: (entity: Entities.FundsDelegated_t) => void,
+    /**
+     * Delete the entity FundsDelegated from the storage.
+     *
+     * The 'deleteUnsafe' method is experimental and unsafe. You should manually handle all entity references after deletion to maintain database consistency.
+     */
+    readonly deleteUnsafe: (id: string) => void,
+  }
   readonly MockLending_HealthFactorUpdated: {
     /**
      * Load the entity MockLending_HealthFactorUpdated from the storage by ID.
@@ -115,6 +171,60 @@ export type HandlerContext = {
       readonly isReady: boolean;
     };
   };
+  readonly AgentStatus: {
+    /**
+     * Load the entity AgentStatus from the storage by ID.
+     * If the entity is not found, returns undefined.
+     */
+    readonly get: (id: string) => Promise<Entities.AgentStatus_t | undefined>,
+    /**
+     * Load the entity AgentStatus from the storage by ID.
+     * If the entity is not found, throws an error.
+     */
+    readonly getOrThrow: (id: string, message?: string) => Promise<Entities.AgentStatus_t>,
+    /**
+     * Returns the entity AgentStatus from the storage by ID.
+     * If the entity is not found, creates it using provided parameters and returns it.
+     */
+    readonly getOrCreate: (entity: Entities.AgentStatus_t) => Promise<Entities.AgentStatus_t>,
+    /**
+     * Set the entity AgentStatus in the storage.
+     */
+    readonly set: (entity: Entities.AgentStatus_t) => void,
+    /**
+     * Delete the entity AgentStatus from the storage.
+     *
+     * The 'deleteUnsafe' method is experimental and unsafe. You should manually handle all entity references after deletion to maintain database consistency.
+     */
+    readonly deleteUnsafe: (id: string) => void,
+  }
+  readonly FundsDelegated: {
+    /**
+     * Load the entity FundsDelegated from the storage by ID.
+     * If the entity is not found, returns undefined.
+     */
+    readonly get: (id: string) => Promise<Entities.FundsDelegated_t | undefined>,
+    /**
+     * Load the entity FundsDelegated from the storage by ID.
+     * If the entity is not found, throws an error.
+     */
+    readonly getOrThrow: (id: string, message?: string) => Promise<Entities.FundsDelegated_t>,
+    /**
+     * Returns the entity FundsDelegated from the storage by ID.
+     * If the entity is not found, creates it using provided parameters and returns it.
+     */
+    readonly getOrCreate: (entity: Entities.FundsDelegated_t) => Promise<Entities.FundsDelegated_t>,
+    /**
+     * Set the entity FundsDelegated in the storage.
+     */
+    readonly set: (entity: Entities.FundsDelegated_t) => void,
+    /**
+     * Delete the entity FundsDelegated from the storage.
+     *
+     * The 'deleteUnsafe' method is experimental and unsafe. You should manually handle all entity references after deletion to maintain database consistency.
+     */
+    readonly deleteUnsafe: (id: string) => void,
+  }
   readonly MockLending_HealthFactorUpdated: {
     /**
      * Load the entity MockLending_HealthFactorUpdated from the storage by ID.

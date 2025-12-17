@@ -1,4 +1,10 @@
   @genType
+module GuardianManager = {
+  module FundsDelegated = Types.MakeRegister(Types.GuardianManager.FundsDelegated)
+  module AgentStatusUpdated = Types.MakeRegister(Types.GuardianManager.AgentStatusUpdated)
+}
+
+  @genType
 module MockLending = {
   module HealthFactorUpdated = Types.MakeRegister(Types.MockLending.HealthFactorUpdated)
   module RescueExecuted = Types.MakeRegister(Types.MockLending.RescueExecuted)

@@ -5,6 +5,10 @@
 
 const TestHelpersJS = require('./TestHelpers.res.js');
 
+import type {GuardianManager_AgentStatusUpdated_event as Types_GuardianManager_AgentStatusUpdated_event} from './Types.gen';
+
+import type {GuardianManager_FundsDelegated_event as Types_GuardianManager_FundsDelegated_event} from './Types.gen';
+
 import type {MockLending_HealthFactorUpdated_event as Types_MockLending_HealthFactorUpdated_event} from './Types.gen';
 
 import type {MockLending_RescueExecuted_event as Types_MockLending_RescueExecuted_event} from './Types.gen';
@@ -38,6 +42,19 @@ export type EventFunctions_mockEventData = {
   readonly transaction?: EventFunctions_MockTransaction_t
 };
 
+export type GuardianManager_FundsDelegated_createMockArgs = {
+  readonly user?: Address_t; 
+  readonly workerAgent?: Address_t; 
+  readonly amount?: bigint; 
+  readonly mockEventData?: EventFunctions_mockEventData
+};
+
+export type GuardianManager_AgentStatusUpdated_createMockArgs = {
+  readonly agent?: Address_t; 
+  readonly isActive?: boolean; 
+  readonly mockEventData?: EventFunctions_mockEventData
+};
+
 export type MockLending_HealthFactorUpdated_createMockArgs = {
   readonly user?: Address_t; 
   readonly newHealth?: bigint; 
@@ -56,6 +73,14 @@ export const Addresses_mockAddresses: Address_t[] = TestHelpersJS.Addresses.mock
 
 export const Addresses_defaultAddress: Address_t = TestHelpersJS.Addresses.defaultAddress as any;
 
+export const GuardianManager_FundsDelegated_processEvent: EventFunctions_eventProcessor<Types_GuardianManager_FundsDelegated_event> = TestHelpersJS.GuardianManager.FundsDelegated.processEvent as any;
+
+export const GuardianManager_FundsDelegated_createMockEvent: (args:GuardianManager_FundsDelegated_createMockArgs) => Types_GuardianManager_FundsDelegated_event = TestHelpersJS.GuardianManager.FundsDelegated.createMockEvent as any;
+
+export const GuardianManager_AgentStatusUpdated_processEvent: EventFunctions_eventProcessor<Types_GuardianManager_AgentStatusUpdated_event> = TestHelpersJS.GuardianManager.AgentStatusUpdated.processEvent as any;
+
+export const GuardianManager_AgentStatusUpdated_createMockEvent: (args:GuardianManager_AgentStatusUpdated_createMockArgs) => Types_GuardianManager_AgentStatusUpdated_event = TestHelpersJS.GuardianManager.AgentStatusUpdated.createMockEvent as any;
+
 export const MockLending_HealthFactorUpdated_processEvent: EventFunctions_eventProcessor<Types_MockLending_HealthFactorUpdated_event> = TestHelpersJS.MockLending.HealthFactorUpdated.processEvent as any;
 
 export const MockLending_HealthFactorUpdated_createMockEvent: (args:MockLending_HealthFactorUpdated_createMockArgs) => Types_MockLending_HealthFactorUpdated_event = TestHelpersJS.MockLending.HealthFactorUpdated.createMockEvent as any;
@@ -67,5 +92,7 @@ export const MockLending_RescueExecuted_createMockEvent: (args:MockLending_Rescu
 export const Addresses: { mockAddresses: Address_t[]; defaultAddress: Address_t } = TestHelpersJS.Addresses as any;
 
 export const MockLending: { RescueExecuted: { processEvent: EventFunctions_eventProcessor<Types_MockLending_RescueExecuted_event>; createMockEvent: (args:MockLending_RescueExecuted_createMockArgs) => Types_MockLending_RescueExecuted_event }; HealthFactorUpdated: { processEvent: EventFunctions_eventProcessor<Types_MockLending_HealthFactorUpdated_event>; createMockEvent: (args:MockLending_HealthFactorUpdated_createMockArgs) => Types_MockLending_HealthFactorUpdated_event } } = TestHelpersJS.MockLending as any;
+
+export const GuardianManager: { FundsDelegated: { processEvent: EventFunctions_eventProcessor<Types_GuardianManager_FundsDelegated_event>; createMockEvent: (args:GuardianManager_FundsDelegated_createMockArgs) => Types_GuardianManager_FundsDelegated_event }; AgentStatusUpdated: { processEvent: EventFunctions_eventProcessor<Types_GuardianManager_AgentStatusUpdated_event>; createMockEvent: (args:GuardianManager_AgentStatusUpdated_createMockArgs) => Types_GuardianManager_AgentStatusUpdated_event } } = TestHelpersJS.GuardianManager as any;
 
 export const MockDb: { createMockDb: () => TestHelpers_MockDb_t } = TestHelpersJS.MockDb as any;

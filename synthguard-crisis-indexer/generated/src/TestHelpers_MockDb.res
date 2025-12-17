@@ -69,6 +69,8 @@ type rec t = {
 // Each user defined entity will be in this record with all the store or "mockdb" operators
 @genType
 and entities = {
+    @as("AgentStatus") agentStatus: entityStoreOperations<Entities.AgentStatus.t>,
+    @as("FundsDelegated") fundsDelegated: entityStoreOperations<Entities.FundsDelegated.t>,
     @as("MockLending_HealthFactorUpdated") mockLending_HealthFactorUpdated: entityStoreOperations<Entities.MockLending_HealthFactorUpdated.t>,
     @as("MockLending_RescueExecuted") mockLending_RescueExecuted: entityStoreOperations<Entities.MockLending_RescueExecuted.t>,
   }
@@ -285,6 +287,34 @@ let rec makeWithInMemoryStore: InMemoryStore.t => t = (inMemoryStore: InMemorySt
   )
 
   let entities = {
+      agentStatus: {
+        makeStoreOperatorEntity(
+          ~inMemoryStore,
+          ~makeMockDb=makeWithInMemoryStore,
+          ~getStore=db => db->InMemoryStore.getInMemTable(
+            ~entityConfig=module(Entities.AgentStatus)->Entities.entityModToInternal,
+          )->(
+            Utils.magic: InMemoryTable.Entity.t<Internal.entity> => InMemoryTable.Entity.t<
+              Entities.AgentStatus.t,
+            >
+          ),
+          ~getKey=({id}) => id,
+        )
+      },
+      fundsDelegated: {
+        makeStoreOperatorEntity(
+          ~inMemoryStore,
+          ~makeMockDb=makeWithInMemoryStore,
+          ~getStore=db => db->InMemoryStore.getInMemTable(
+            ~entityConfig=module(Entities.FundsDelegated)->Entities.entityModToInternal,
+          )->(
+            Utils.magic: InMemoryTable.Entity.t<Internal.entity> => InMemoryTable.Entity.t<
+              Entities.FundsDelegated.t,
+            >
+          ),
+          ~getKey=({id}) => id,
+        )
+      },
       mockLending_HealthFactorUpdated: {
         makeStoreOperatorEntity(
           ~inMemoryStore,

@@ -39,14 +39,27 @@ let makeGeneratedConfig = () => {
           ],
           startBlock: None,
         },
+        {
+          InternalConfig.name: "GuardianManager",
+          abi: Types.GuardianManager.abi,
+          addresses: [
+            "0xDA0dFcC5A305F10EBfb0791A8Ce59Ca8FB2F0C92"->Address.Evm.fromStringOrThrow
+,
+          ],
+          events: [
+            (Types.GuardianManager.FundsDelegated.register() :> Internal.eventConfig),
+            (Types.GuardianManager.AgentStatusUpdated.register() :> Internal.eventConfig),
+          ],
+          startBlock: None,
+        },
       ]
       let chain = ChainMap.Chain.makeUnsafe(~chainId=84532)
       {
         InternalConfig.maxReorgDepth: 200,
-        startBlock: 35071323,
+        startBlock: 34900000,
         id: 84532,
         contracts,
-        sources: NetworkSources.evm(~chain, ~contracts=[{name: "MockLending",events: [Types.MockLending.HealthFactorUpdated.register(), Types.MockLending.RescueExecuted.register()],abi: Types.MockLending.abi}], ~hyperSync=None, ~allEventSignatures=[Types.MockLending.eventSignatures]->Belt.Array.concatMany, ~shouldUseHypersyncClientDecoder=true, ~rpcs=[{url: "https://sepolia.base.org", sourceFor: Sync, syncConfig: {}}], ~lowercaseAddresses=false)
+        sources: NetworkSources.evm(~chain, ~contracts=[{name: "MockLending",events: [Types.MockLending.HealthFactorUpdated.register(), Types.MockLending.RescueExecuted.register()],abi: Types.MockLending.abi}, {name: "GuardianManager",events: [Types.GuardianManager.FundsDelegated.register(), Types.GuardianManager.AgentStatusUpdated.register()],abi: Types.GuardianManager.abi}], ~hyperSync=None, ~allEventSignatures=[Types.MockLending.eventSignatures, Types.GuardianManager.eventSignatures]->Belt.Array.concatMany, ~shouldUseHypersyncClientDecoder=true, ~rpcs=[{url: "https://sepolia.base.org", sourceFor: Sync, syncConfig: {}}], ~lowercaseAddresses=false)
       }
     },
   ]
@@ -76,6 +89,11 @@ let registerAllHandlers = () => {
     ~preloadHandlers=configWithoutRegistrations.preloadHandlers,
   )
 
+  registerContractHandlers(
+    ~contractName="GuardianManager",
+    ~handlerPathRelativeToRoot="src/EventHandlers.js",
+    ~handlerPathRelativeToConfig="src/EventHandlers.js",
+  )
   registerContractHandlers(
     ~contractName="MockLending",
     ~handlerPathRelativeToRoot="src/EventHandlers.js",

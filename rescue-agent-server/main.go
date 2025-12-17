@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
+	
 	"log"
 	"math/big"
 	"net/http"
@@ -14,426 +12,293 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/machinebox/graphql"
 )
 
-/* ================= GLOBAL STATE ================= */
-
+// ---------------- CONFIG & GLOBALS ----------------
 var (
-	 rescuedUsers = make(map[string]bool)
+	client              *ethclient.Client
+	privateKey          *ecdsa.PrivateKey
+	agentAddress        common.Address
+	chainID             *big.Int
+	
+	// Contract Addresses
+	debtTokenAddr       common.Address
+	guardianManagerAddr common.Address
+	rescueAgentAddr     common.Address
+
+	// In-Memory Store for Signatures (User -> SignatureData)
 	signatureStore = make(map[string]SignatureData)
 	storeMutex     sync.RWMutex
-
-	ethClient *ethclient.Client
-	gqlClient *graphql.Client
-
-	agentContractAddr common.Address
-	agentPrivateKey   string
-
-	lendingContractAddr = common.HexToAddress("0xa0f95A73BA2c1395E9F4B95e6F6b7faF3E07A447")
 )
 
-/* ================= DATA STRUCTS ================= */
+// ---------------- DATA STRUCTURES ----------------
 
 type SignatureData struct {
-	Owner    common.Address
-	Value    *big.Int
-	Deadline *big.Int
-	V        uint8
-	R        [32]byte
-	S        [32]byte
+	Owner    string `json:"owner"`
+	Value    string `json:"value"`
+	Deadline string `json:"deadline"`
+	V        uint8  `json:"v"`
+	R        string `json:"r"`
+	S        string `json:"s"`
 }
 
-type CrisisUser struct {
-	User string `json:"user"`
-}
-
-/* ================= CORS ================= */
-
-func enableCors(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next(w, r)
-	}
-}
-
-/* ================= SIGNATURE INGEST ================= */
-
-func signatureHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var payload struct {
-		Owner    string `json:"owner"`
-		Value    string `json:"value"`
-		Deadline string `json:"deadline"`
-		V        uint8  `json:"v"`
-		R        string `json:"r"`
-		S        string `json:"s"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	value, ok := new(big.Int).SetString(payload.Value, 10)
-	if !ok {
-		http.Error(w, "invalid value", http.StatusBadRequest)
-		return
-	}
-
-	deadline, ok := new(big.Int).SetString(payload.Deadline, 10)
-	if !ok {
-		http.Error(w, "invalid deadline", http.StatusBadRequest)
-		return
-	}
-
-	if time.Now().Unix() > deadline.Int64() {
-		http.Error(w, "signature expired", http.StatusBadRequest)
-		return
-	}
-
-	v := payload.V
-	if v < 27 {
-		v += 27
-	}
-
-	rBytes, _ := hex.DecodeString(strings.TrimPrefix(payload.R, "0x"))
-	sBytes, _ := hex.DecodeString(strings.TrimPrefix(payload.S, "0x"))
-
-	var rArr, sArr [32]byte
-	copy(rArr[:], rBytes)
-	copy(sArr[:], sBytes)
-
-	owner := common.HexToAddress(payload.Owner)
-
-	storeMutex.Lock()
-	signatureStore[strings.ToLower(owner.Hex())] = SignatureData{
-		Owner:    owner,
-		Value:    value,
-		Deadline: deadline,
-		V:        v,
-		R:        rArr,
-		S:        sArr,
-	}
-	storeMutex.Unlock()
-
-	log.Println("✅ Stored signature for", owner.Hex())
-	w.WriteHeader(http.StatusOK)
-}
-
-/* ================= RESCUE EXECUTION ================= */
-
-func executeRescue(parsedABI abi.ABI, borrower common.Address, sig SignatureData) error {
-	if borrower != sig.Owner {
-		return errors.New("borrower != signature owner")
-	}
-
-	if time.Now().Unix() > sig.Deadline.Int64() {
-		return errors.New("permit expired")
-	}
-
-	const lendingABIJSON = `
-	[
-	  {
-		"inputs":[{"internalType":"address","name":"user","type":"address"}],
-		"name":"debt",
-		"outputs":[{"internalType":"uint256","name":"","type":"uint256"}],
-		"stateMutability":"view",
-		"type":"function"
-	  }
-	]`
-
-	lendingABI, _ := abi.JSON(strings.NewReader(lendingABIJSON))
-	dataDebt, _ := lendingABI.Pack("debt", borrower)
-
-	result, err := ethClient.CallContract(context.Background(), ethereum.CallMsg{
-		To:   &lendingContractAddr,
-		Data: dataDebt,
-	}, nil)
-	if err != nil {
-		return err
-	}
-
-	out, _ := lendingABI.Unpack("debt", result)
-	actualDebt := out[0].(*big.Int)
-
-	if actualDebt.Sign() == 0 {
-		log.Println("🛑 No debt, skipping rescue")
-		return nil
-	}
-
-	// Debt to repay (never exceeds signed permit value)
-	repayAmount := new(big.Int).Set(actualDebt)
-	if repayAmount.Cmp(sig.Value) > 0 {
-		repayAmount = sig.Value
-	}
-
-	// 💰 Agent fee (set to zero for now, or configure)
-	agentFee := new(big.Int).Div(repayAmount, big.NewInt(200))
-
-	// Safety check: permit must cover debt + fee
-	total := new(big.Int).Add(repayAmount, agentFee)
-	if sig.Value.Cmp(total) < 0 {
-		return errors.New("permit value < debt + agent fee")
-	}
-
-	log.Println(
-		"💸 Repaying:", repayAmount.String(),
-		"| Fee:", agentFee.String(),
-		"| Permit:", sig.Value.String(),
-	)
-
-	// 🔥 CORRECT ABI ENCODING (8 PARAMS)
-	data, err := parsedABI.Pack(
-		"executeRescueWithPermit",
-		borrower,
-		repayAmount,
-		agentFee,   // ✅ REQUIRED PARAM
-		sig.Value,  // 🔒 EXACT SIGNED VALUE
-		sig.Deadline,
-		sig.V,
-		sig.R,
-		sig.S,
-	)
-	if err != nil {
-		return err
-	}
-
-	privateKey, err := crypto.HexToECDSA(agentPrivateKey)
-	if err != nil {
-		return err
-	}
-
-	publicKey := privateKey.Public().(*ecdsa.PublicKey)
-	from := crypto.PubkeyToAddress(*publicKey)
-
-	nonce, _ := ethClient.PendingNonceAt(context.Background(), from)
-	gasPrice, _ := ethClient.SuggestGasPrice(context.Background())
-
-	tx := types.NewTransaction(
-		nonce,
-		agentContractAddr,
-		big.NewInt(0),
-		300000,
-		gasPrice,
-		data,
-	)
-
-	chainID, _ := ethClient.ChainID(context.Background())
-	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
-
-	log.Println("🚀 Sending rescue tx for", borrower.Hex())
-	return ethClient.SendTransaction(context.Background(), signedTx)
-}
-func getDebt(user common.Address) (*big.Int, error) {
-	const lendingABIJSON = `
-	[
-	  {
-	    "inputs":[{"internalType":"address","name":"user","type":"address"}],
-	    "name":"debt",
-	    "outputs":[{"internalType":"uint256","name":"","type":"uint256"}],
-	    "stateMutability":"view",
-	    "type":"function"
-	  }
-	]`
-
-	lendingABI, err := abi.JSON(strings.NewReader(lendingABIJSON))
-	if err != nil {
-		return nil, err
-	}
-
-	data, _ := lendingABI.Pack("debt", user)
-
-	result, err := ethClient.CallContract(context.Background(), ethereum.CallMsg{
-		To:   &lendingContractAddr,
-		Data: data,
-	}, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	out, err := lendingABI.Unpack("debt", result)
-	if err != nil {
-		return nil, err
-	}
-
-	return out[0].(*big.Int), nil
-}
-
-/* ================= MONITOR ================= */
-
-func monitorCrisis() {
-	const agentABIJSON = `
-	[
-	  {
-	    "inputs": [
-	      { "internalType": "address", "name": "user", "type": "address" },
-	      { "internalType": "uint256", "name": "amountToRepay", "type": "uint256" },
-	      { "internalType": "uint256", "name": "agentFee", "type": "uint256" },
-	      { "internalType": "uint256", "name": "value", "type": "uint256" },
-	      { "internalType": "uint256", "name": "deadline", "type": "uint256" },
-	      { "internalType": "uint8", "name": "v", "type": "uint8" },
-	      { "internalType": "bytes32", "name": "r", "type": "bytes32" },
-	      { "internalType": "bytes32", "name": "s", "type": "bytes32" }
-	    ],
-	    "name": "executeRescueWithPermit",
-	    "outputs": [],
-	    "stateMutability": "nonpayable",
-	    "type": "function"
-	  }
-	]`
-
-	parsedABI, err := abi.JSON(strings.NewReader(agentABIJSON))
-	if err != nil {
-		log.Fatal("❌ Failed to parse Agent ABI:", err)
-	}
-
-	// ⚠️ IMPORTANT:
-	// Do NOT filter here, indexer returns historical rows
-	query := `
-	query {
-	  MockLending_HealthFactorUpdated {
-	    user
-	  }
-	}`
-
-	log.Println("🧠 Crisis monitor started")
-
-	for {
-		req := graphql.NewRequest(query)
-
-		var resp struct {
-			Events []CrisisUser `json:"MockLending_HealthFactorUpdated"`
-		}
-
-		err := gqlClient.Run(context.Background(), req, &resp)
-		if err != nil {
-			log.Println("❌ GraphQL error:", err)
-			time.Sleep(10 * time.Second)
-			continue
-		}
-
-		for _, e := range resp.Events {
-			userAddr := common.HexToAddress(e.User)
-			key := strings.ToLower(userAddr.Hex())
-			var debt *big.Int
-	debt, err = getDebt(userAddr)
-	if err != nil {
-		log.Println("❌ Failed to fetch debt:", err)
-		continue
-	}
-
-			log.Println("🧪 Crisis event detected for:", key)
-
-			// ------------------------------------------------
-			// 1️⃣ DEDUPLICATION (CRITICAL)
-			// ------------------------------------------------
-debt, err = getDebt(userAddr)
-if err != nil {
-	log.Println("❌ Failed to fetch debt:", err)
-	continue
-}
-
-if debt.Sign() == 0 {
-	// Crisis resolved → allow future rescues
-	if rescuedUsers[key] {
-		log.Println("🔄 Debt cleared, resetting rescue flag for", key)
-		delete(rescuedUsers, key)
-	}
-	continue
-}
-			
-			if rescuedUsers[key] {
-				log.Println("⏭ Already rescued, skipping:", key)
-				continue
-			}
-
-			// ------------------------------------------------
-			// 2️⃣ CHECK AUTHORIZATION
-			// ------------------------------------------------
-			storeMutex.RLock()
-			sig, ok := signatureStore[key]
-			storeMutex.RUnlock()
-
-			if !ok {
-				log.Println("⛔ No authorization stored for:", key)
-				continue
-			}
-
-			// ------------------------------------------------
-			// 3️⃣ PERMIT EXPIRY CHECK
-			// ------------------------------------------------
-			if time.Now().Unix() > sig.Deadline.Int64() {
-				log.Println("⏰ Permit expired for:", key)
-				storeMutex.Lock()
-				delete(signatureStore, key)
-				storeMutex.Unlock()
-				continue
-			}
-
-			// ------------------------------------------------
-			// 4️⃣ EXECUTE RESCUE
-			// ------------------------------------------------
-			log.Println("🔥 Executing rescue for:", key)
-
-			err := executeRescue(parsedABI, userAddr, sig)
-			if err != nil {
-				log.Println("❌ Rescue failed for", key, ":", err)
-				continue
-			}
-
-			// ------------------------------------------------
-			// 5️⃣ MARK AS HANDLED
-			// ------------------------------------------------
-			rescuedUsers[key] = true
-			log.Println("✅ Rescue completed for:", key)
-		}
-
-		time.Sleep(10 * time.Second)
-	}
-}
-
-
-
-
-
-			
-
-		
-
-		
-/* ================= MAIN ================= */
+// ---------------- ABIs (Minimal for A2A Flow) ----------------
+
+// 1. ERC-20 Permit ABI
+const tokenABIJson = `[
+	{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"deadline","type":"uint256"},{"internalType":"uint8","name":"v","type":"uint8"},{"internalType":"bytes32","name":"r","type":"bytes32"},{"internalType":"bytes32","name":"s","type":"bytes32"}],"name":"permit","outputs":[],"stateMutability":"nonpayable","type":"function"}
+]`
+
+// 2. GuardianManager ABI
+const managerABIJson = `[
+	{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"address","name":"targetAgent","type":"address"}],"name":"authorizeAgent","outputs":[],"stateMutability":"nonpayable","type":"function"}
+]`
+
+// 3. RescueAgent ABI (Updated for A2A: payer + debtor)
+const rescueABIJson = `[
+	{"inputs":[{"internalType":"address","name":"payer","type":"address"},{"internalType":"address","name":"debtor","type":"address"},{"internalType":"uint256","name":"amountToRepay","type":"uint256"},{"internalType":"uint256","name":"agentFee","type":"uint256"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"deadline","type":"uint256"},{"internalType":"uint8","name":"v","type":"uint8"},{"internalType":"bytes32","name":"r","type":"bytes32"},{"internalType":"bytes32","name":"s","type":"bytes32"}],"name":"executeRescueWithPermit","outputs":[],"stateMutability":"nonpayable","type":"function"}
+]`
+
+// ---------------- MAIN ENTRY POINT ----------------
 
 func main() {
-	godotenv.Load()
+	// 1. Load Env
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️  Warning: No .env file found")
+	}
 
-	ethClient, _ = ethclient.Dial(os.Getenv("BASE_SEPOLIA_RPC"))
-	gqlClient = graphql.NewClient(os.Getenv("GRAPHQL_ENDPOINT"))
+	// 2. Connect to Blockchain
+	setupBlockchain()
 
-	agentContractAddr = common.HexToAddress(os.Getenv("AGENT_CONTRACT_ADDR"))
-	agentPrivateKey = os.Getenv("PRIVATE_KEY")
+	// 3. Start Background Monitor
+	go monitorCrisisLoop()
 
-	go monitorCrisis()
+	// 4. Start HTTP Server for Signatures
+	setupServer()
+}
 
-	http.HandleFunc("/submit-signature", enableCors(signatureHandler))
+// ---------------- SETUP FUNCTIONS ----------------
 
-	log.Println("🤖 Agent running on :8081")
-	log.Fatal(http.ListenAndServe(":8081", nil))
+func setupBlockchain() {
+	var err error
+	rpcURL := os.Getenv("RPC_URL")
+	if rpcURL == "" {
+		log.Fatal("❌ RPC_URL is missing in .env")
+	}
+
+	client, err = ethclient.Dial(rpcURL)
+	if err != nil {
+		log.Fatal("❌ Failed to connect to EthClient:", err)
+	}
+
+	// Load Private Key
+	pkStr := os.Getenv("PRIVATE_KEY")
+	privateKey, err = crypto.HexToECDSA(strings.TrimPrefix(pkStr, "0x"))
+	if err != nil {
+		log.Fatal("❌ Invalid Private Key:", err)
+	}
+
+	// Derive Agent Public Address
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		log.Fatal("❌ Error casting public key")
+	}
+	agentAddress = crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	// Get Chain ID
+	chainID, err = client.NetworkID(context.Background())
+	if err != nil {
+		log.Fatal("❌ Failed to get ChainID:", err)
+	}
+
+	// Parse Contract Addresses
+	debtTokenAddr = common.HexToAddress(os.Getenv("DEBT_TOKEN_ADDR"))
+	guardianManagerAddr = common.HexToAddress(os.Getenv("GUARDIAN_MANAGER_ADDR"))
+	rescueAgentAddr = common.HexToAddress(os.Getenv("RESCUE_AGENT_ADDR"))
+
+	log.Printf("🤖 Agent initialized at: %s", agentAddress.Hex())
+	log.Printf("🛡️  Manager: %s | 🚑 Rescue: %s", guardianManagerAddr.Hex(), rescueAgentAddr.Hex())
+}
+
+func setupServer() {
+	r := gin.Default()
+
+	// FIX CORS: Allow Flutter app to talk to Codespace
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type"}
+	r.Use(cors.New(config))
+
+	// Endpoint to receive permits
+	r.POST("/submit-signature", func(c *gin.Context) {
+		var sig SignatureData
+		if err := c.BindJSON(&sig); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		storeMutex.Lock()
+		signatureStore[strings.ToLower(sig.Owner)] = sig
+		storeMutex.Unlock()
+
+		log.Printf("✅ Stored A2A signature for %s", sig.Owner)
+		c.JSON(http.StatusOK, gin.H{"status": "received"})
+	})
+
+	log.Println("🚀 Server listening on :8081")
+	r.Run(":8081")
+}
+
+// ---------------- MONITORING LOOP ----------------
+
+func monitorCrisisLoop() {
+	// Simple simulation loop. In production, query Envio/Graph here.
+	ticker := time.NewTicker(10 * time.Second)
+	for range ticker.C {
+		storeMutex.RLock()
+		// Iterate over all known users we have signatures for
+		for user, sig := range signatureStore {
+			// TODO: Query Envio here to check real health factor.
+			// For Hackathon Demo: We assume anyone with a sig is a target if we run this.
+			// You can add a boolean flag or a specific API call to trigger this.
+			
+			log.Printf("🔍 Checking user %s...", user)
+			
+			// --- REAL RESCUE TRIGGER ---
+			// Uncomment the 'if' condition below to connect to real indexer logic
+			// if (checkUserHealth(user) < 1.0) {
+				go performA2ARescue(user, sig)
+			// }
+		}
+		storeMutex.RUnlock()
+	}
+}
+
+// ---------------- A2A RESCUE SEQUENCE ----------------
+
+func performA2ARescue(userAddrStr string, sig SignatureData) {
+	log.Printf("🚨 INITIATING A2A RESCUE FOR %s", userAddrStr)
+
+	// 1. Prepare Data
+	userAddr := common.HexToAddress(userAddrStr)
+	
+	val, _ := new(big.Int).SetString(sig.Value, 10)
+	deadline, _ := new(big.Int).SetString(sig.Deadline, 10)
+	
+	// R and S conversion
+	rVal := common.HexToHash(sig.R)
+	sVal := common.HexToHash(sig.S)
+
+	// Get fresh nonce for the Agent
+	nonce, err := client.PendingNonceAt(context.Background(), agentAddress)
+	if err != nil {
+		log.Printf("❌ Failed to get nonce: %v", err)
+		return
+	}
+
+	// ---------------------------------------------------------
+	// TX 1: SUBMIT PERMIT to DEBT TOKEN
+	// (User -> Spender: GuardianManager)
+	// ---------------------------------------------------------
+	log.Println("➡️ Step 1: Submitting Permit to Token Contract...")
+	parsedTokenABI, _ := abi.JSON(strings.NewReader(tokenABIJson))
+	
+	// Note: Spender in the permit must be GUARDIAN MANAGER for A2A
+	input1, _ := parsedTokenABI.Pack("permit", 
+		userAddr, 
+		guardianManagerAddr, // <--- Spender is Manager
+		val, deadline, sig.V, rVal, sVal,
+	)
+
+	tx1Hash := sendTx(debtTokenAddr, input1, nonce)
+	if tx1Hash == "" { return }
+	nonce++ // Increment nonce locally for next tx
+
+	// ---------------------------------------------------------
+	// TX 2: AUTHORIZE AGENT (Manager -> RescueAgent)
+	// ---------------------------------------------------------
+	log.Println("➡️ Step 2: Manager Authorizing RescueRunner...")
+	parsedManagerABI, _ := abi.JSON(strings.NewReader(managerABIJson))
+	
+	// Amount to rescue (e.g., 500 USDC). For demo, we use a fixed amount or part of permit
+	amountToRescue := new(big.Int).Div(val, big.NewInt(2)) // Rescue 50% of permit limit
+
+	input2, _ := parsedManagerABI.Pack("authorizeAgent", 
+		debtTokenAddr, 
+		userAddr, 
+		amountToRescue, 
+		rescueAgentAddr, // <--- Target Agent B
+	)
+
+	tx2Hash := sendTx(guardianManagerAddr, input2, nonce)
+	if tx2Hash == "" { return }
+	nonce++
+
+	// ---------------------------------------------------------
+	// TX 3: EXECUTE RESCUE (RescueAgent Logic)
+	// ---------------------------------------------------------
+	log.Println("➡️ Step 3: Executing Final Rescue...")
+	parsedRescueABI, _ := abi.JSON(strings.NewReader(rescueABIJson))
+	
+	agentFee := big.NewInt(0) // Free for hackathon demo
+	
+	// Payer = Guardian Manager
+	// Debtor = User
+	input3, _ := parsedRescueABI.Pack("executeRescueWithPermit",
+		guardianManagerAddr, // Payer
+		userAddr,            // Debtor
+		amountToRescue,
+		agentFee,
+		val, deadline, sig.V, rVal, sVal, // Pass dummy/old permit data just to satisfy interface
+	)
+
+	tx3Hash := sendTx(rescueAgentAddr, input3, nonce)
+	if tx3Hash != "" {
+		log.Printf("🏆 A2A RESCUE COMPLETE! Final Tx: %s", tx3Hash)
+		
+		// Remove signature to prevent loops
+		storeMutex.Lock()
+		delete(signatureStore, strings.ToLower(sig.Owner))
+		storeMutex.Unlock()
+	}
+}
+
+// ---------------- HELPER: SEND TRANSACTION ----------------
+
+func sendTx(to common.Address, data []byte, nonce uint64) string {
+	gasPrice, _ := client.SuggestGasPrice(context.Background())
+	// Bump gas for Testnet reliability
+	gasPrice = new(big.Int).Mul(gasPrice, big.NewInt(2)) 
+
+	// Create TX
+	tx := types.NewTransaction(nonce, to, big.NewInt(0), 300000, gasPrice, data)
+
+	// Sign TX
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	if err != nil {
+		log.Printf("❌ Signing error: %v", err)
+		return ""
+	}
+
+	// Broadcast
+	err = client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		log.Printf("❌ Broadcast error: %v", err)
+		return ""
+	}
+
+	log.Printf("   ✅ Tx Sent: %s", signedTx.Hash().Hex())
+	
+	// Wait a bit to ensure sequence order on testnet
+	time.Sleep(2 * time.Second) 
+	return signedTx.Hash().Hex()
 }

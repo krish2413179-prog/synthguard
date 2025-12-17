@@ -1,4 +1,29 @@
 const { MockLending } = require("../generated");
+const { GuardianManager } = require("../generated");
+
+// Handler for when the Manager delegates funds to a Worker (A2A Event)
+GuardianManager.FundsDelegated.handler(async ({ event, context }) => {
+  const entity = {
+    id: event.transactionHash + event.logIndex.toString(),
+    user: event.params.user,
+    workerAgent: event.params.workerAgent,
+    amount: event.params.amount,
+    timestamp: event.blockTimestamp,
+  };
+
+  context.FundsDelegated.set(entity);
+});
+
+// Handler for when a new Agent (e.g. DCA, Rescue) is approved
+GuardianManager.AgentStatusUpdated.handler(async ({ event, context }) => {
+  const entity = {
+    id: event.params.agent.toString(), // Use agent address as ID
+    agent: event.params.agent,
+    isActive: event.params.isActive,
+  };
+
+  context.AgentStatus.set(entity);
+});
 
 /**
  * Health factor update

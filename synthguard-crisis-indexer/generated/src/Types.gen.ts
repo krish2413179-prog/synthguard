@@ -3,6 +3,10 @@
 /* eslint-disable */
 /* tslint:disable */
 
+import type {AgentStatus_t as Entities_AgentStatus_t} from '../src/db/Entities.gen';
+
+import type {FundsDelegated_t as Entities_FundsDelegated_t} from '../src/db/Entities.gen';
+
 import type {HandlerContext as $$handlerContext} from './Types.ts';
 
 import type {HandlerWithOptions as $$fnWithEventConfig} from './bindings/OpaqueTypes.ts';
@@ -42,7 +46,11 @@ import type {t as Address_t} from 'envio/src/Address.gen';
 export type id = string;
 export type Id = id;
 
-export type contractRegistrations = { readonly log: Envio_logger; readonly addMockLending: (_1:Address_t) => void };
+export type contractRegistrations = {
+  readonly log: Envio_logger; 
+  readonly addGuardianManager: (_1:Address_t) => void; 
+  readonly addMockLending: (_1:Address_t) => void
+};
 
 export type entityLoaderContext<entity,indexedFieldOperations> = {
   readonly get: (_1:id) => Promise<(undefined | entity)>; 
@@ -58,6 +66,12 @@ export type loaderContext = $$loaderContext;
 export type entityHandlerContext<entity> = Internal_entityHandlerContext<entity>;
 
 export type handlerContext = $$handlerContext;
+
+export type agentStatus = Entities_AgentStatus_t;
+export type AgentStatus = agentStatus;
+
+export type fundsDelegated = Entities_FundsDelegated_t;
+export type FundsDelegated = fundsDelegated;
 
 export type mockLending_HealthFactorUpdated = Entities_MockLending_HealthFactorUpdated_t;
 export type MockLending_HealthFactorUpdated = mockLending_HealthFactorUpdated;
@@ -109,6 +123,108 @@ export type fnWithEventConfig<fn,eventConfig> = $$fnWithEventConfig<fn,eventConf
 export type handlerWithOptions<eventArgs,loaderReturn,eventFilters> = fnWithEventConfig<HandlerTypes_handler<eventArgs,loaderReturn>,HandlerTypes_eventConfig<eventFilters>>;
 
 export type contractRegisterWithOptions<eventArgs,eventFilters> = fnWithEventConfig<HandlerTypes_contractRegister<eventArgs>,HandlerTypes_eventConfig<eventFilters>>;
+
+export type GuardianManager_chainId = 84532;
+
+export type GuardianManager_FundsDelegated_eventArgs = {
+  readonly user: Address_t; 
+  readonly workerAgent: Address_t; 
+  readonly amount: bigint
+};
+
+export type GuardianManager_FundsDelegated_block = Block_t;
+
+export type GuardianManager_FundsDelegated_transaction = Transaction_t;
+
+export type GuardianManager_FundsDelegated_event = {
+  /** The parameters or arguments associated with this event. */
+  readonly params: GuardianManager_FundsDelegated_eventArgs; 
+  /** The unique identifier of the blockchain network where this event occurred. */
+  readonly chainId: GuardianManager_chainId; 
+  /** The address of the contract that emitted this event. */
+  readonly srcAddress: Address_t; 
+  /** The index of this event's log within the block. */
+  readonly logIndex: number; 
+  /** The transaction that triggered this event. Configurable in `config.yaml` via the `field_selection` option. */
+  readonly transaction: GuardianManager_FundsDelegated_transaction; 
+  /** The block in which this event was recorded. Configurable in `config.yaml` via the `field_selection` option. */
+  readonly block: GuardianManager_FundsDelegated_block
+};
+
+export type GuardianManager_FundsDelegated_loaderArgs = Internal_genericLoaderArgs<GuardianManager_FundsDelegated_event,loaderContext>;
+
+export type GuardianManager_FundsDelegated_loader<loaderReturn> = Internal_genericLoader<GuardianManager_FundsDelegated_loaderArgs,loaderReturn>;
+
+export type GuardianManager_FundsDelegated_handlerArgs<loaderReturn> = Internal_genericHandlerArgs<GuardianManager_FundsDelegated_event,handlerContext,loaderReturn>;
+
+export type GuardianManager_FundsDelegated_handler<loaderReturn> = Internal_genericHandler<GuardianManager_FundsDelegated_handlerArgs<loaderReturn>>;
+
+export type GuardianManager_FundsDelegated_contractRegister = Internal_genericContractRegister<Internal_genericContractRegisterArgs<GuardianManager_FundsDelegated_event,contractRegistrations>>;
+
+export type GuardianManager_FundsDelegated_eventFilter = { readonly user?: SingleOrMultiple_t<Address_t>; readonly workerAgent?: SingleOrMultiple_t<Address_t> };
+
+export type GuardianManager_FundsDelegated_eventFiltersArgs = { 
+/** The unique identifier of the blockchain network where this event occurred. */
+readonly chainId: GuardianManager_chainId; 
+/** Addresses of the contracts indexing the event. */
+readonly addresses: Address_t[] };
+
+export type GuardianManager_FundsDelegated_eventFiltersDefinition = 
+    GuardianManager_FundsDelegated_eventFilter
+  | GuardianManager_FundsDelegated_eventFilter[];
+
+export type GuardianManager_FundsDelegated_eventFilters = 
+    GuardianManager_FundsDelegated_eventFilter
+  | GuardianManager_FundsDelegated_eventFilter[]
+  | ((_1:GuardianManager_FundsDelegated_eventFiltersArgs) => GuardianManager_FundsDelegated_eventFiltersDefinition);
+
+export type GuardianManager_AgentStatusUpdated_eventArgs = { readonly agent: Address_t; readonly isActive: boolean };
+
+export type GuardianManager_AgentStatusUpdated_block = Block_t;
+
+export type GuardianManager_AgentStatusUpdated_transaction = Transaction_t;
+
+export type GuardianManager_AgentStatusUpdated_event = {
+  /** The parameters or arguments associated with this event. */
+  readonly params: GuardianManager_AgentStatusUpdated_eventArgs; 
+  /** The unique identifier of the blockchain network where this event occurred. */
+  readonly chainId: GuardianManager_chainId; 
+  /** The address of the contract that emitted this event. */
+  readonly srcAddress: Address_t; 
+  /** The index of this event's log within the block. */
+  readonly logIndex: number; 
+  /** The transaction that triggered this event. Configurable in `config.yaml` via the `field_selection` option. */
+  readonly transaction: GuardianManager_AgentStatusUpdated_transaction; 
+  /** The block in which this event was recorded. Configurable in `config.yaml` via the `field_selection` option. */
+  readonly block: GuardianManager_AgentStatusUpdated_block
+};
+
+export type GuardianManager_AgentStatusUpdated_loaderArgs = Internal_genericLoaderArgs<GuardianManager_AgentStatusUpdated_event,loaderContext>;
+
+export type GuardianManager_AgentStatusUpdated_loader<loaderReturn> = Internal_genericLoader<GuardianManager_AgentStatusUpdated_loaderArgs,loaderReturn>;
+
+export type GuardianManager_AgentStatusUpdated_handlerArgs<loaderReturn> = Internal_genericHandlerArgs<GuardianManager_AgentStatusUpdated_event,handlerContext,loaderReturn>;
+
+export type GuardianManager_AgentStatusUpdated_handler<loaderReturn> = Internal_genericHandler<GuardianManager_AgentStatusUpdated_handlerArgs<loaderReturn>>;
+
+export type GuardianManager_AgentStatusUpdated_contractRegister = Internal_genericContractRegister<Internal_genericContractRegisterArgs<GuardianManager_AgentStatusUpdated_event,contractRegistrations>>;
+
+export type GuardianManager_AgentStatusUpdated_eventFilter = { readonly agent?: SingleOrMultiple_t<Address_t> };
+
+export type GuardianManager_AgentStatusUpdated_eventFiltersArgs = { 
+/** The unique identifier of the blockchain network where this event occurred. */
+readonly chainId: GuardianManager_chainId; 
+/** Addresses of the contracts indexing the event. */
+readonly addresses: Address_t[] };
+
+export type GuardianManager_AgentStatusUpdated_eventFiltersDefinition = 
+    GuardianManager_AgentStatusUpdated_eventFilter
+  | GuardianManager_AgentStatusUpdated_eventFilter[];
+
+export type GuardianManager_AgentStatusUpdated_eventFilters = 
+    GuardianManager_AgentStatusUpdated_eventFilter
+  | GuardianManager_AgentStatusUpdated_eventFilter[]
+  | ((_1:GuardianManager_AgentStatusUpdated_eventFiltersArgs) => GuardianManager_AgentStatusUpdated_eventFiltersDefinition);
 
 export type MockLending_chainId = 84532;
 
