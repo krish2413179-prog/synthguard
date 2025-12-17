@@ -10,7 +10,7 @@ networks:
 
     contracts:
       - name: MockLending
-        address: 0x76Bb074046e707481D6ba9cc7301e39912dC0EE1
+        address: 0x7871A1eE915f3085126f1676daEf75A24626EcBa
         handler: src/EventHandlers.js
         abi_file_path: abis/MockLending.json
         events:
@@ -20,7 +20,7 @@ networks:
      
 
       - name: GuardianManager
-        address: 0xDA0dFcC5A305F10EBfb0791A8Ce59Ca8FB2F0C92             
+        address: 0xc56f35202CD3c79F70351b213E8Fb130B678Fe7C            
         handler: src/EventHandlers.js
         events:
           - event: FundsDelegated(address indexed user, address indexed workerAgent, uint256 amount)
