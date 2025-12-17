@@ -8,7 +8,7 @@ GuardianManager.FundsDelegated.handler(async ({ event, context }) => {
     user: event.params.user,
     workerAgent: event.params.workerAgent,
     amount: event.params.amount,
-    timestamp: event.blockTimestamp,
+    timestamp: event.block.timestamp,
   };
 
   context.FundsDelegated.set(entity);

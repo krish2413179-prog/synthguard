@@ -30,7 +30,7 @@ let makeGeneratedConfig = () => {
           InternalConfig.name: "MockLending",
           abi: Types.MockLending.abi,
           addresses: [
-            "0x76Bb074046e707481D6ba9cc7301e39912dC0EE1"->Address.Evm.fromStringOrThrow
+            "0x7871A1eE915f3085126f1676daEf75A24626EcBa"->Address.Evm.fromStringOrThrow
 ,
           ],
           events: [
@@ -43,7 +43,7 @@ let makeGeneratedConfig = () => {
           InternalConfig.name: "GuardianManager",
           abi: Types.GuardianManager.abi,
           addresses: [
-            "0xDA0dFcC5A305F10EBfb0791A8Ce59Ca8FB2F0C92"->Address.Evm.fromStringOrThrow
+            "0xc56f35202CD3c79F70351b213E8Fb130B678Fe7C"->Address.Evm.fromStringOrThrow
 ,
           ],
           events: [
